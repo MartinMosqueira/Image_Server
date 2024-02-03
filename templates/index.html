@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Sitio Web</title>
+    <link rel="stylesheet" href="../static/index.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+</head>
+<body>
+<header>
+    <h1>Mi Sitio Web</h1>
+</header>
+
+<nav>
+    <a href="/">Inicio</a>
+    <a href="#" onclick="seleccionarImagen()">Subir Imagen</a>
+</nav>
+
+<section>
+    <h2>Mis Imagenes</h2>
+
+    <input type="file" id="imagenInput" accept="image/*" style="display: none;" multiple>
+
+    <button id="botonSubir" onclick="seleccionarImagen()"><span class="material-symbols-outlined">add</span></button>
+
+
+
+    <script>
+        function seleccionarImagen() {
+            const inputElement = document.getElementById('imagenInput');
+            inputElement.click();
+
+            inputElement.addEventListener('change', () => {
+                const files = inputElement.files;
+                if (files.length > 0) {
+                    const formData = new FormData();
+                    for (let i = 0; i < files.length; i++) {
+                        formData.append('imagenInput', files[i]);
+                    }
+
+                    fetch('/app/up', {
+                        method: 'POST',
+                        body: formData,
+                    })
+                        .then(response => response.text())
+                        .then(data => console.log(data))
+                        .catch(error => console.error('Error:', error));
+                }
+            });
+        }
+    </script>
+</section>
+</body>
+</html>

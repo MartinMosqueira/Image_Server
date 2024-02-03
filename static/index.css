@@ -1,0 +1,58 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 10px;
+    text-align: center;
+}
+
+nav {
+    display: flex;
+    justify-content: center;
+    background-color: #555;
+    padding: 10px;
+}
+
+nav a {
+    color: #fff;
+    margin: 0 10px;
+    text-decoration: none;
+}
+
+section {
+    margin: 20px;
+}
+
+h2 {
+    text-align: center;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+#botonSubir {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: #4caf50;
+    color: white;
+    padding: 15px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.material-symbols-outlined {
+    font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+}
