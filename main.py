@@ -1,5 +1,5 @@
 from aiohttp import web
-from services import get_all_images, upload_image, download_image, delete_image
+from services import upload_image
 
 
 async def home_page(request):
@@ -11,12 +11,7 @@ async def main():
     app = web.Application()
     app.router.add_get('/', home_page)
     app.router.add_static('/static/', path='static', name='static')
-
-    app.router.add_get('/app/images', get_all_images)
     app.router.add_post('/app/up', upload_image)
-    app.router.add_get('/app/download', download_image)
-    app.router.add_delete('/app/delete', delete_image)
-
 
     # create server
     runner = web.AppRunner(app)

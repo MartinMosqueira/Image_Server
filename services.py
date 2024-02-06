@@ -1,17 +1,29 @@
 import asyncio
-import io
 from aiohttp import web
 import boto3
 from dotenv import load_dotenv
 import os
 import time
-import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from PIL import Image
+import io
 
 load_dotenv()
 
 
 async def get_all_images(request):
     pass
+
+
+def encode_webp(image_data):
+    pillow_image = Image.open(io.BytesIO(image_data))
+
+    if pillow_image.mode != 'RGB':
+        pillow_image = pillow_image.convert('RGB')
+
+    webp_data = io.BytesIO()
+    pillow_image.save(webp_data, 'WEBP', quality=80)
+    return webp_data.getvalue()
 
 
 def upload_to_s3(file_content, file_name, s3_client):
@@ -21,28 +33,36 @@ def upload_to_s3(file_content, file_name, s3_client):
 
 
 async def upload_image(request):
-    time_start = time.time()
+
+    time_start = time.monotonic()
     try:
         data = await request.post()
         images = data.getall('imagenInput')
 
+        parts = [image.file.read() for image in images]
+
+        with ProcessPoolExecutor() as executor:
+            tasks = []
+            for part in parts:
+                task = asyncio.get_event_loop().run_in_executor(executor, encode_webp, part)
+                tasks.append(task)
+
+            results = await asyncio.gather(*tasks)
+
+        # Subir las imágenes a S3
         s3_client = boto3.client('s3',
                                  aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
                                  aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
                                  region_name=os.environ.get('AWS_REGION')
                                  )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = []
+        with ThreadPoolExecutor() as executor:
+            tasks = []
+            for i, result in enumerate(results):
+                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'resultado_{i}.webp', s3_client)
+                tasks.append(task)
 
-            for image in images:
-                file_content = image.file.read()
-                file_name = image.filename
-
-                future = executor.submit(upload_to_s3, file_content, file_name, s3_client)
-                futures.append(future)
-
-            concurrent.futures.wait(futures)
+            await asyncio.gather(*tasks)
 
         return web.Response(text="Imágenes subidas correctamente", status=200)
 
@@ -51,7 +71,7 @@ async def upload_image(request):
         return web.Response(text="Error al subir imágenes", status=500)
 
     finally:
-        time_end = time.time()
+        time_end = time.monotonic()
         print(f"Tiempo de ejecución: {time_end - time_start} segundos")
 
 
