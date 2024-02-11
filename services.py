@@ -40,6 +40,7 @@ async def upload_image(request):
         images = data.getall('imagenInput')
 
         parts = [image.file.read() for image in images]
+        names = [image.filename for image in images]
 
         with ProcessPoolExecutor() as executor:
             tasks = []
@@ -58,8 +59,8 @@ async def upload_image(request):
 
         with ThreadPoolExecutor() as executor:
             tasks = []
-            for i, result in enumerate(results):
-                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'resultado_{i}.webp', s3_client)
+            for name, result in zip(names, results):
+                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'{name}.webp', s3_client)
                 tasks.append(task)
 
             await asyncio.gather(*tasks)
