@@ -1,9 +1,18 @@
 from aiohttp import web
-from services import upload_image
+from jinja2 import Environment, FileSystemLoader
+from services import upload_image, get_all_images
 
 
 async def home_page(request):
-    return web.FileResponse('templates/index.html')
+    page_number = int(request.query.get('page_number', 1))
+    url = await get_all_images(request, page_number)
+
+    template_loader = FileSystemLoader(searchpath='templates/')
+    env = Environment(loader=template_loader)
+    template = env.get_template('index.html')
+
+    rendered_template = template.render(images=url)
+    return web.Response(text=rendered_template, content_type='text/html')
 
 
 async def main():

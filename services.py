@@ -11,8 +11,26 @@ import io
 load_dotenv()
 
 
-async def get_all_images(request):
-    pass
+async def get_all_images(request, page_number=1, max_keys=5):
+    s3_client = boto3.client('s3',
+                             aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                             aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
+                             region_name=os.environ.get('AWS_REGION')
+                             )
+
+    paginator = s3_client.get_paginator('list_objects_v2')
+    images = []
+    page_iterator = paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'), PaginationConfig={'PageSize': max_keys})
+    for i, page in enumerate(page_iterator):
+        if i == page_number - 1:
+            for content in page['Contents']:
+                url = s3_client.generate_presigned_url('get_object',
+                                                       Params={'Bucket': os.environ.get('AWS_BUCKET'), 'Key': content['Key']},
+                                                       ExpiresIn=300)
+                images.append(url)
+            break
+
+    return images
 
 
 def encode_webp(image_data):

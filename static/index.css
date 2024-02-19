@@ -26,11 +26,19 @@ nav a {
 }
 
 section {
-    margin: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 h2 {
     text-align: center;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
 }
 
 input[type="file"] {
