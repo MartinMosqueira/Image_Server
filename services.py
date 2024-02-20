@@ -11,7 +11,7 @@ import io
 load_dotenv()
 
 
-async def get_all_images(request, page_number=1, max_keys=5):
+async def get_all_images(request, starter='neom.webp', max_keys=3):
     s3_client = boto3.client('s3',
                              aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
                              aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
@@ -20,15 +20,20 @@ async def get_all_images(request, page_number=1, max_keys=5):
 
     paginator = s3_client.get_paginator('list_objects_v2')
     images = []
-    page_iterator = paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'), PaginationConfig={'PageSize': max_keys})
-    for i, page in enumerate(page_iterator):
-        if i == page_number - 1:
-            for content in page['Contents']:
-                url = s3_client.generate_presigned_url('get_object',
-                                                       Params={'Bucket': os.environ.get('AWS_BUCKET'), 'Key': content['Key']},
-                                                       ExpiresIn=300)
-                images.append(url)
-            break
+    pageNumber = 0
+    page_iterator = paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'),
+                                       StartAfter=starter,
+                                       PaginationConfig={'PageSize': max_keys})
+    for page in page_iterator:
+        pageNumber += 1
+        for content in page['Contents']:
+            url = s3_client.generate_presigned_url('get_object',
+                                                   Params={'Bucket': os.environ.get('AWS_BUCKET'),
+                                                           'Key': content['Key']},
+                                                   ExpiresIn=300)
+            images.append(url)
+        print(f'Page {pageNumber}')
+        break
 
     return images
 
@@ -51,7 +56,6 @@ def upload_to_s3(file_content, file_name, s3_client):
 
 
 async def upload_image(request):
-
     time_start = time.monotonic()
     try:
         data = await request.post()
@@ -78,7 +82,8 @@ async def upload_image(request):
         with ThreadPoolExecutor() as executor:
             tasks = []
             for name, result in zip(names, results):
-                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'{name}.webp', s3_client)
+                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'{name}.webp',
+                                                                s3_client)
                 tasks.append(task)
 
             await asyncio.gather(*tasks)

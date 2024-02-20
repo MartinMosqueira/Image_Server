@@ -20,9 +20,11 @@
 <section>
     <h2>Mis Imagenes</h2>
 
-    <div id="imgContainer">
+    <div class="img-container">
         {% for url in images %}
-            <img src="{{ url }}" alt="Mi Imagen">
+            <div class="img-wrapper">
+                <img src="{{ url }}" alt="Mi Imagen" class="img-item">
+            </div>
         {% endfor %}
     </div>
 

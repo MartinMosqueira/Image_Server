@@ -4,8 +4,7 @@ from services import upload_image, get_all_images
 
 
 async def home_page(request):
-    page_number = int(request.query.get('page_number', 1))
-    url = await get_all_images(request, page_number)
+    url = await get_all_images(request, 'neom.webp', 3)
 
     template_loader = FileSystemLoader(searchpath='templates/')
     env = Environment(loader=template_loader)
