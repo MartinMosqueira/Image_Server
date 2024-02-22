@@ -1,4 +1,6 @@
 import asyncio
+import json
+
 from aiohttp import web
 import boto3
 from dotenv import load_dotenv
@@ -10,8 +12,10 @@ import io
 
 load_dotenv()
 
+last_show_image = 'beach.webp'
 
-async def get_all_images(request, starter='neom.webp', max_keys=3):
+
+async def get_all_images(request, starter=None, max_keys=7):
     s3_client = boto3.client('s3',
                              aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
                              aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
@@ -32,10 +36,18 @@ async def get_all_images(request, starter='neom.webp', max_keys=3):
                                                            'Key': content['Key']},
                                                    ExpiresIn=300)
             images.append(url)
+        last_show_image = page['Contents'][-1]['Key']
         print(f'Page {pageNumber}')
+        print(images)
+        print(f'Last image: {last_show_image}')
         break
 
-    return images
+    response_data = {
+        'images': images,
+        'last_show_image': last_show_image
+    }
+
+    return response_data
 
 
 def encode_webp(image_data):

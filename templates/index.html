@@ -32,7 +32,61 @@
 
     <button id="botonSubir" onclick="seleccionarImagen()"><span class="material-symbols-outlined">add</span></button>
 
+    <!-- Script JavaScript para manejar el scroll y cargar más imágenes -->
+    <script>
+        var loading = false;
+        var lastImage = '{{ last_image }}';
 
+        window.addEventListener('scroll', function () {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight && !loading) {
+                loading = true;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/?last_image=' + lastImage, true);
+
+                xhr.onload = function () {
+                    if (xhr.status == 200) {
+                        var contentType = xhr.getResponseHeader('content-type').toLowerCase();
+
+                        if (contentType.includes('application/json')) {
+                            var response = JSON.parse(xhr.responseText);
+
+                            var newImages = response.images;
+                            var imageContainer = document.querySelector('.img-container');
+
+                            if (newImages.length > 0) {
+                                newImages.forEach(function (imageSrc) {
+                                    var imgElement = document.createElement('img');
+                                    imgElement.src = imageSrc;
+                                    imgElement.alt = 'Imagen';
+                                    imageContainer.appendChild(imgElement);
+                                });
+
+                                lastImage = response.last_show_image;
+                            }
+                        } else if (contentType.includes('text/html')) {
+                            // Handle HTML content as needed (e.g., append to the existing container)
+                            var tempContainer = document.createElement('div');
+                            tempContainer.innerHTML = xhr.responseText;
+
+                            var newImages = tempContainer.querySelectorAll('.img-container .img-wrapper img');
+                            var imageContainer = document.querySelector('.img-container');
+
+                            newImages.forEach(function (imgElement) {
+                                imageContainer.appendChild(imgElement);
+                            });
+
+                            lastImage = response.last_show_image;
+                        }
+
+                        loading = false;
+                    }
+                };
+
+                xhr.send();
+            }
+        });
+    </script>
 
     <script>
         function seleccionarImagen() {

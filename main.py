@@ -4,13 +4,18 @@ from services import upload_image, get_all_images
 
 
 async def home_page(request):
-    url = await get_all_images(request, 'neom.webp', 3)
+    last_image = request.rel_url.query.get('last_image', 'beach.webp')
+    response = await get_all_images(request, last_image, 7)
+
+    url = response['images']
+    last_show_image = response['last_show_image']
 
     template_loader = FileSystemLoader(searchpath='templates/')
     env = Environment(loader=template_loader)
     template = env.get_template('index.html')
 
-    rendered_template = template.render(images=url)
+    rendered_template = template.render(images=url, last_image=last_show_image)
+    print(rendered_template)
     return web.Response(text=rendered_template, content_type='text/html')
 
 
