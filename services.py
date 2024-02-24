@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from aiohttp import web
 import boto3
@@ -12,39 +11,42 @@ import io
 
 load_dotenv()
 
-last_show_image = 'beach.webp'
 
+async def get_all_images(request, continuation_token, max_keys=7):
 
-async def get_all_images(request, starter=None, max_keys=7):
     s3_client = boto3.client('s3',
                              aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
                              aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
                              region_name=os.environ.get('AWS_REGION')
                              )
 
-    paginator = s3_client.get_paginator('list_objects_v2')
     images = []
-    pageNumber = 0
-    page_iterator = paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'),
-                                       StartAfter=starter,
-                                       PaginationConfig={'PageSize': max_keys})
-    for page in page_iterator:
-        pageNumber += 1
-        for content in page['Contents']:
+    list_objects_params = {
+        'Bucket': os.environ.get('AWS_BUCKET'),
+        'MaxKeys': max_keys,
+    }
+    if continuation_token and continuation_token.lower() != 'none':
+        print(f'hay token: {continuation_token}')
+        list_objects_params['ContinuationToken'] = str(continuation_token)
+
+    print(f'Parametros: {list_objects_params}')
+
+    response = s3_client.list_objects_v2(**list_objects_params)
+
+    if 'Contents' in response:
+        for content in response['Contents']:
             url = s3_client.generate_presigned_url('get_object',
                                                    Params={'Bucket': os.environ.get('AWS_BUCKET'),
                                                            'Key': content['Key']},
                                                    ExpiresIn=300)
             images.append(url)
-        last_show_image = page['Contents'][-1]['Key']
-        print(f'Page {pageNumber}')
-        print(images)
-        print(f'Last image: {last_show_image}')
-        break
+
+    print(f'Nuevo Token ded get_all_images: {response.get("NextContinuationToken")}')
+    print(f'Imagenes de get_all_images: {images}')
 
     response_data = {
         'images': images,
-        'last_show_image': last_show_image
+        'continuation_token': response.get('NextContinuationToken')
     }
 
     return response_data

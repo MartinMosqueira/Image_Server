@@ -4,19 +4,32 @@ from services import upload_image, get_all_images
 
 
 async def home_page(request):
-    last_image = request.rel_url.query.get('last_image', 'beach.webp')
-    response = await get_all_images(request, last_image, 7)
+    continuation_token = request.rel_url.query.get('continuation_token', None)
+    print(f'Token Actual: {continuation_token}')
+    response = await get_all_images(request, continuation_token, 7)
 
     url = response['images']
-    last_show_image = response['last_show_image']
+    token = response['continuation_token']
 
     template_loader = FileSystemLoader(searchpath='templates/')
     env = Environment(loader=template_loader)
     template = env.get_template('index.html')
 
-    rendered_template = template.render(images=url, last_image=last_show_image)
-    print(rendered_template)
+    print(f'Token Enviado : {token}')
+    rendered_template = template.render(images=url, last_token=token)
     return web.Response(text=rendered_template, content_type='text/html')
+
+
+async def receive_token(request):
+    data = await request.post()
+    continuation_token_from_js = data.get('continuation_token_from_js', None)
+
+    print(f'Token Recivido de javascript!!: {continuation_token_from_js}')
+
+    new_token = await get_all_images(request, continuation_token_from_js)
+
+    print(f'Nuevo Token Enviado : {new_token["continuation_token"]}')
+    return web.Response(text=new_token["continuation_token"], content_type='text/plain')
 
 
 async def main():
@@ -25,6 +38,7 @@ async def main():
     app.router.add_get('/', home_page)
     app.router.add_static('/static/', path='static', name='static')
     app.router.add_post('/app/up', upload_image)
+    app.router.add_post('/app/receive_token', receive_token)
 
     # create server
     runner = web.AppRunner(app)
