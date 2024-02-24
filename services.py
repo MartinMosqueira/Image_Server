@@ -41,7 +41,7 @@ async def get_all_images(request, continuation_token, max_keys=7):
                                                    ExpiresIn=300)
             images.append(url)
 
-    print(f'Nuevo Token ded get_all_images: {response.get("NextContinuationToken")}')
+    print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
     print(f'Imagenes de get_all_images: {images}')
 
     response_data = {

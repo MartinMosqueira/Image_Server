@@ -26,10 +26,10 @@ async def receive_token(request):
 
     print(f'Token Recivido de javascript!!: {continuation_token_from_js}')
 
-    new_token = await get_all_images(request, continuation_token_from_js)
+    response = await get_all_images(request, continuation_token_from_js)
 
-    print(f'Nuevo Token Enviado : {new_token["continuation_token"]}')
-    return web.Response(text=new_token["continuation_token"], content_type='text/plain')
+    print(f'Nuevo Token Enviado : {response["continuation_token"]}')
+    return web.json_response(response)
 
 
 async def main():

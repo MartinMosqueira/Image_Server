@@ -61,6 +61,35 @@
         var lastToken = "{{ last_token }}";
         console.log("Token recivido de python!!:", lastToken);
 
+        function cargarMasImagenes() {
+            fetch('/app/receive_token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'continuation_token_from_js=' + encodeURIComponent(lastToken),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    lastToken = data.continuation_token;
+                    console.log('Token enviado a python!!:', lastToken);
+
+                    data.images.forEach(url => {
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.className = 'img-wrapper';
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.alt = 'Mi Imagen';
+                        img.className = 'img-item';
+                        imgWrapper.appendChild(img);
+                        document.getElementById('imageContainer').appendChild(imgWrapper);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
         var lastScrollPosition = 0;
 
         function handleScroll() {
@@ -68,27 +97,10 @@
 
             var totalHeight = document.documentElement.scrollHeight;
 
-            // Verificar si se está haciendo scroll hacia abajo
-            if (scrollPosition > lastScrollPosition && scrollPosition + window.innerHeight >= totalHeight && lastToken !== "None") {
-
-                fetch('/app/receive_token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'continuation_token_from_js=' + encodeURIComponent(lastToken),
-                })
-                    .then(response => response.text())
-                    .then(data => {
-                        lastToken = data.trim();
-                        console.log('Token enviado a python!!:', lastToken);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                    });
+            if (scrollPosition > lastScrollPosition && scrollPosition + window.innerHeight >= totalHeight && lastToken !== "None" && lastToken !== null) {
+                cargarMasImagenes();
             }
 
-            // Actualizar la posición del scroll anterior
             lastScrollPosition = scrollPosition;
         }
 
