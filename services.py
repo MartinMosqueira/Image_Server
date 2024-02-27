@@ -20,6 +20,10 @@ async def start_redis():
     return redis_client
 
 
+def list_objects_v2_sync(s3_client, list_objects_params):
+    return s3_client.list_objects_v2(**list_objects_params)
+
+
 async def get_all_images(request, continuation_token, max_keys=7):
     r = redis_client
 
@@ -53,17 +57,24 @@ async def get_all_images(request, continuation_token, max_keys=7):
 
         print(f'Parametros: {list_objects_params}')
 
-        response = s3_client.list_objects_v2(**list_objects_params)
+        with ThreadPoolExecutor() as executor:
+            response = await asyncio.get_event_loop().run_in_executor(executor, list_objects_v2_sync, s3_client, list_objects_params)
 
         if 'Contents' in response:
-            for content in response['Contents']:
-                url = s3_client.generate_presigned_url('get_object',
-                                                       Params={'Bucket': os.environ.get('AWS_BUCKET'),
-                                                               'Key': content['Key']},
-                                                       ExpiresIn=300)
-                images.append(url)
+            with ThreadPoolExecutor() as executor:
+                tasks = []
+                for content in response['Contents']:
+                    task = asyncio.get_event_loop().run_in_executor(executor, s3_client.generate_presigned_url,
+                                                                    'get_object',
+                                                                    {'Bucket': os.environ.get('AWS_BUCKET'),
+                                                                     'Key': content['Key']},
+                                                                    300)
+                    tasks.append(task)
 
-            r.setex(continuation_token_str, 300, str({'images': images, 'continuation_token': response.get('NextContinuationToken')}))
+                images = await asyncio.gather(*tasks)
+
+            r.setex(continuation_token_str, 300,
+                    str({'images': images, 'continuation_token': response.get('NextContinuationToken')}))
 
         print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
         print(f'Imagenes de get_all_images: {images}')
