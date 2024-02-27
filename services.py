@@ -8,46 +8,70 @@ import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from PIL import Image
 import io
+import redis
 
 load_dotenv()
+redis_client = None
+
+
+async def start_redis():
+    global redis_client
+    redis_client = redis.Redis(host=os.environ.get('REDIS_HOST'), port=os.environ.get('REDIS_PORT'))
+    return redis_client
 
 
 async def get_all_images(request, continuation_token, max_keys=7):
+    r = redis_client
 
-    s3_client = boto3.client('s3',
-                             aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                             aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
-                             region_name=os.environ.get('AWS_REGION')
-                             )
+    continuation_token_str = str(continuation_token) if continuation_token is None else continuation_token
 
-    images = []
-    list_objects_params = {
-        'Bucket': os.environ.get('AWS_BUCKET'),
-        'MaxKeys': max_keys,
-    }
-    if continuation_token and continuation_token.lower() != 'none':
-        print(f'hay token: {continuation_token}')
-        list_objects_params['ContinuationToken'] = str(continuation_token)
+    cached_images = r.get(continuation_token_str)
 
-    print(f'Parametros: {list_objects_params}')
+    if cached_images:
+        print(f'Hay imágenes en la caché de Redis para token: {continuation_token_str}')
+        cached_data = eval(cached_images)
+        response_data = {
+            'images': cached_data['images'],
+            'continuation_token': cached_data['continuation_token']
+        }
+        print(f'Imagenes de redis get_all_images: {cached_data["images"]}')
+    else:
+        s3_client = boto3.client('s3',
+                                 aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                                 aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
+                                 region_name=os.environ.get('AWS_REGION')
+                                 )
 
-    response = s3_client.list_objects_v2(**list_objects_params)
+        images = []
+        list_objects_params = {
+            'Bucket': os.environ.get('AWS_BUCKET'),
+            'MaxKeys': max_keys,
+        }
+        if continuation_token and continuation_token.lower() != 'none':
+            print(f'hay token: {continuation_token}')
+            list_objects_params['ContinuationToken'] = str(continuation_token)
 
-    if 'Contents' in response:
-        for content in response['Contents']:
-            url = s3_client.generate_presigned_url('get_object',
-                                                   Params={'Bucket': os.environ.get('AWS_BUCKET'),
-                                                           'Key': content['Key']},
-                                                   ExpiresIn=300)
-            images.append(url)
+        print(f'Parametros: {list_objects_params}')
 
-    print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
-    print(f'Imagenes de get_all_images: {images}')
+        response = s3_client.list_objects_v2(**list_objects_params)
 
-    response_data = {
-        'images': images,
-        'continuation_token': response.get('NextContinuationToken')
-    }
+        if 'Contents' in response:
+            for content in response['Contents']:
+                url = s3_client.generate_presigned_url('get_object',
+                                                       Params={'Bucket': os.environ.get('AWS_BUCKET'),
+                                                               'Key': content['Key']},
+                                                       ExpiresIn=300)
+                images.append(url)
+
+            r.setex(continuation_token_str, 300, str({'images': images, 'continuation_token': response.get('NextContinuationToken')}))
+
+        print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
+        print(f'Imagenes de get_all_images: {images}')
+
+        response_data = {
+            'images': images,
+            'continuation_token': response.get('NextContinuationToken')
+        }
 
     return response_data
 

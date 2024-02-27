@@ -1,6 +1,6 @@
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
-from services import upload_image, get_all_images
+from services import upload_image, get_all_images, start_redis
 
 
 async def home_page(request):
@@ -33,6 +33,9 @@ async def receive_token(request):
 
 
 async def main():
+    # start redis
+    await start_redis()
+
     # create app
     app = web.Application()
     app.router.add_get('/', home_page)
