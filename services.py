@@ -9,6 +9,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from PIL import Image
 import io
 import redis
+from pathlib import Path
 
 load_dotenv()
 redis_client = None
@@ -131,7 +132,10 @@ async def upload_image(request):
         with ThreadPoolExecutor() as executor:
             tasks = []
             for name, result in zip(names, results):
-                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, f'{name}.webp',
+
+                webp_filename = f'{Path(name).stem}.webp'
+
+                task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, webp_filename,
                                                                 s3_client)
                 tasks.append(task)
 
@@ -153,20 +157,4 @@ async def download_image(request):
 
 
 async def delete_image(request):
-    try:
-        data = await request.post()
-        image_key = data.get('image_key')
-        print(f'Eliminando imagen: {image_key}')
-
-        s3_client = boto3.client('s3',
-                                 aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                                 aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
-                                 region_name=os.environ.get('AWS_REGION')
-                                 )
-
-        s3_client.delete_object(Bucket=os.environ.get('AWS_BUCKET'), Key=image_key)
-
-        return web.Response(text="Imagen eliminada correctamente", status=200)
-    except Exception as e:
-        print(f"Error al eliminar imagen: {e}")
-        return web.Response(text="Error al eliminar imagen", status=500)
+    pass

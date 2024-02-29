@@ -42,7 +42,6 @@ async def main():
     app.router.add_static('/static/', path='static', name='static')
     app.router.add_post('/app/up', upload_image)
     app.router.add_post('/app/receive_token', receive_token)
-    app.router.add_delete('/app/delete_image', delete_image)
 
     # create server
     runner = web.AppRunner(app)
