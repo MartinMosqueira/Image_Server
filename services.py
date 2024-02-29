@@ -153,4 +153,20 @@ async def download_image(request):
 
 
 async def delete_image(request):
-    return web.Response(text="Response from DELETE")
+    try:
+        data = await request.post()
+        image_key = data.get('image_key')
+        print(f'Eliminando imagen: {image_key}')
+
+        s3_client = boto3.client('s3',
+                                 aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                                 aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
+                                 region_name=os.environ.get('AWS_REGION')
+                                 )
+
+        s3_client.delete_object(Bucket=os.environ.get('AWS_BUCKET'), Key=image_key)
+
+        return web.Response(text="Imagen eliminada correctamente", status=200)
+    except Exception as e:
+        print(f"Error al eliminar imagen: {e}")
+        return web.Response(text="Error al eliminar imagen", status=500)
