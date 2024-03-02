@@ -1,6 +1,6 @@
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
-from services import upload_image, get_all_images, start_redis, delete_image
+from services import upload_image, get_all_images, start_redis, search_image
 
 
 async def home_page(request):
@@ -42,6 +42,7 @@ async def main():
     app.router.add_static('/static/', path='static', name='static')
     app.router.add_post('/app/up', upload_image)
     app.router.add_post('/app/receive_token', receive_token)
+    app.router.add_post('/app/search_image', search_image)
 
     # create server
     runner = web.AppRunner(app)

@@ -1,4 +1,5 @@
 import asyncio
+import concurrent
 
 from aiohttp import web
 import boto3
@@ -10,6 +11,8 @@ from PIL import Image
 import io
 import redis
 from pathlib import Path
+import json
+from urllib.parse import urlparse
 
 load_dotenv()
 redis_client = None
@@ -59,7 +62,8 @@ async def get_all_images(request, continuation_token, max_keys=7):
         print(f'Parametros: {list_objects_params}')
 
         with ThreadPoolExecutor() as executor:
-            response = await asyncio.get_event_loop().run_in_executor(executor, list_objects_v2_sync, s3_client, list_objects_params)
+            response = await asyncio.get_event_loop().run_in_executor(executor, list_objects_v2_sync, s3_client,
+                                                                      list_objects_params)
 
         if 'Contents' in response:
             with ThreadPoolExecutor() as executor:
@@ -74,7 +78,7 @@ async def get_all_images(request, continuation_token, max_keys=7):
 
                 images = await asyncio.gather(*tasks)
 
-            r.setex(continuation_token_str, 300,
+            r.setex(continuation_token_str, 3600,
                     str({'images': images, 'continuation_token': response.get('NextContinuationToken')}))
 
         print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
@@ -132,7 +136,6 @@ async def upload_image(request):
         with ThreadPoolExecutor() as executor:
             tasks = []
             for name, result in zip(names, results):
-
                 webp_filename = f'{Path(name).stem}.webp'
 
                 task = asyncio.get_event_loop().run_in_executor(executor, upload_to_s3, result, webp_filename,
@@ -152,9 +155,80 @@ async def upload_image(request):
         print(f"Tiempo de ejecución: {time_end - time_start} segundos")
 
 
-async def download_image(request):
-    return web.Response(text="Response from GET")
+def get_all_tokens_redis():
+    r = redis_client
+
+    return r.keys('*')
 
 
-async def delete_image(request):
-    pass
+async def search_image_redis(tokenRedis, nameImage):
+    r = redis_client
+    content = r.get(tokenRedis)
+
+    if content:
+        content_str = content.decode('utf-8')
+
+        content_fixed = content_str.replace("'", "\"")
+
+        try:
+            data = json.loads(content_fixed)
+
+            images = data.get('images', [])
+
+            for image_url in images:
+                parsed_url = urlparse(image_url)
+                image_name = parsed_url.path.split("/")[-1].split(".webp")[0]
+
+                if nameImage == image_name:
+                    print(f"Imagen econtrada: {image_url}")
+                    return image_url
+
+        except Exception as e:
+            print(f"Error al decodificar JSON: {e}")
+    return ''
+
+
+async def search_all_images_redis(nameImage):
+    tokens = await asyncio.to_thread(get_all_tokens_redis)
+
+    for token in tokens:
+        result = await search_image_redis(token, nameImage)
+
+        if result != '':
+            return result
+
+
+async def search_image(request):
+    print("Buscando imagen")
+    data = await request.post()
+    search = data.get('search', None)
+
+    if search is not None:
+        image_url = await search_all_images_redis(search)
+        print(f"Imagen encontrada: {image_url}")
+        if image_url:
+            return web.Response(text=image_url if image_url else '')
+        else:
+            print(f"Buscando en AWS")
+            s3_client = boto3.client('s3',
+                                     aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                                     aws_secret_access_key=os.environ.get('AWS_ACCESS_SECRET_KEY'),
+                                     region_name=os.environ.get('AWS_REGION')
+                                     )
+            max_keys = 5
+            pages = 0
+
+            paginator = s3_client.get_paginator('list_objects_v2')
+
+            for page in paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'),
+                                           PaginationConfig={'PageSize': max_keys}):
+                pages += 1
+                print(f"Page: {pages}")
+                for content in page['Contents']:
+                    if search in content['Key']:
+                        print(content['Key'])
+                        return web.Response(text=s3_client.generate_presigned_url('get_object',
+                                                                                  {'Bucket': os.environ.get(
+                                                                                      'AWS_BUCKET'),
+                                                                                      'Key': content['Key']},
+                                                                                  300))

@@ -20,6 +20,17 @@
 <section>
     <h2>Mis Imagenes</h2>
 
+    <form id="searchForm">
+        <label for="searchInput">Buscar imagen:</label>
+        <input type="text" id="searchInput" name="search" placeholder="Nombre de la imagen">
+        <button type="button" onclick="buscarImagen()">Buscar</button>
+    </form>
+
+    <div id="foundImageContainer" style="display: none;" class="img-wrapper">
+        <h3>Imagen Encontrada:</h3>
+        <img id="foundImage" class="img-item" alt="Imagen Encontrada">
+    </div>
+
     <div class="img-container" id="imageContainer">
         {% for url in images %}
             <div class="img-wrapper">
@@ -32,6 +43,38 @@
 
     <button id="botonSubir" onclick="seleccionarImagen()"><span class="material-symbols-outlined">add</span></button>
 
+    <script>
+        function buscarImagen() {
+            const searchInput = document.getElementById('searchInput').value;
+            console.log(searchInput.trim());
+
+            if (searchInput.trim() !== '') {
+                fetch(`/app/search_image`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'search=' + encodeURIComponent(searchInput),
+                })
+                    .then(response => response.text())
+                    .then(data => {
+                        if (data !== '') {
+                            const foundImageContainer = document.getElementById('foundImageContainer');
+                            const foundImage = document.getElementById('foundImage');
+                            foundImage.src = data;
+                            foundImage.alt = 'Imagen Encontrada';
+                            foundImageContainer.style.display = 'block';
+                        } else {
+                            alert('Imagen no encontrada');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            } else {
+                alert('Ingresa un nombre de imagen válido');
+            }
+        }
+
+    </script>
     <!-- Script JavaScript para subir imagenes al servidor -->
     <script>
         function seleccionarImagen() {
