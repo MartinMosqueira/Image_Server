@@ -78,7 +78,7 @@ async def get_all_images(request, continuation_token, max_keys=7):
 
                 images = await asyncio.gather(*tasks)
 
-            r.setex(continuation_token_str, 3600,
+            r.setex(continuation_token_str, 300,
                     str({'images': images, 'continuation_token': response.get('NextContinuationToken')}))
 
         print(f'Nuevo Token de get_all_images: {response.get("NextContinuationToken")}')
@@ -220,15 +220,21 @@ async def search_image(request):
 
             paginator = s3_client.get_paginator('list_objects_v2')
 
-            for page in paginator.paginate(Bucket=os.environ.get('AWS_BUCKET'),
-                                           PaginationConfig={'PageSize': max_keys}):
-                pages += 1
-                print(f"Page: {pages}")
-                for content in page['Contents']:
-                    if search in content['Key']:
-                        print(content['Key'])
-                        return web.Response(text=s3_client.generate_presigned_url('get_object',
-                                                                                  {'Bucket': os.environ.get(
-                                                                                      'AWS_BUCKET'),
-                                                                                      'Key': content['Key']},
-                                                                                  300))
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(paginator.paginate,
+                                           Bucket=os.environ.get('AWS_BUCKET'),
+                                           PaginationConfig={'PageSize': max_keys})]
+
+                for future in concurrent.futures.as_completed(futures):
+                    for page in future.result():
+                        pages += 1
+                        print(f"Page: {pages}")
+                        for content in page['Contents']:
+                            if search in content['Key']:
+                                print(content['Key'])
+                                return web.Response(text=s3_client.generate_presigned_url('get_object',
+                                                                                          {'Bucket': os.environ.get(
+                                                                                              'AWS_BUCKET'),
+                                                                                              'Key': content['Key']},
+                                                                                          300))
+
