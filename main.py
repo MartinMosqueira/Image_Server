@@ -1,6 +1,10 @@
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 from services import upload_image, get_all_images, start_redis, search_image
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 async def home_page(request):
@@ -47,7 +51,7 @@ async def main():
     # create server
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', 8080)
+    site = web.TCPSite(runner, os.environ.get('SERVER_HOST'), os.environ.get('SERVER_PORT'))
 
     # start server
     await site.start()
