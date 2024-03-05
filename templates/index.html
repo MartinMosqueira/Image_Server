@@ -43,6 +43,7 @@
 
     <button id="botonSubir" onclick="seleccionarImagen()"><span class="material-symbols-outlined">add</span></button>
 
+    <!-- Script JavaScript para buscar imagenes en el servidor -->
     <script>
         function buscarImagen() {
             const searchInput = document.getElementById('searchInput').value;
@@ -75,6 +76,7 @@
         }
 
     </script>
+
     <!-- Script JavaScript para subir imagenes al servidor -->
     <script>
         function seleccionarImagen() {
@@ -103,6 +105,8 @@
             });
         }
     </script>
+
+    <!-- Script JavaScript para cargar mas imagenes en el servidor -->
     <script>
         var lastToken = "{{ last_token }}";
         console.log("Token recivido de python!!:", lastToken);

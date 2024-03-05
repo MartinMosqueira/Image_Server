@@ -18,6 +18,7 @@ load_dotenv()
 redis_client = None
 
 
+# CARGAR IMAGENES
 async def start_redis():
     global redis_client
     redis_client = redis.Redis(host=os.environ.get('REDIS_HOST'), port=os.environ.get('REDIS_PORT'))
@@ -92,6 +93,7 @@ async def get_all_images(request, continuation_token, max_keys=7):
     return response_data
 
 
+# SUBIR IMAGENES
 def encode_webp(image_data):
     pillow_image = Image.open(io.BytesIO(image_data))
 
@@ -112,19 +114,29 @@ def upload_to_s3(file_content, file_name, s3_client):
 async def upload_image(request):
     time_start = time.monotonic()
     try:
-        data = await request.post()
-        images = data.getall('imagenInput')
+        data = await request.multipart()
+        images = []
+        names = []
 
-        parts = [image.file.read() for image in images]
-        names = [image.filename for image in images]
+        while True:
+            field = await data.next()
+            if not field:
+                break
+
+            if field.name == 'imagenInput':
+                images.append(await field.read(decode=True))
+                names.append(field.filename)
+
+        print(f"Subiendo {len(images)} imágenes")
 
         with ProcessPoolExecutor() as executor:
             tasks = []
-            for part in parts:
+            for part in images:
                 task = asyncio.get_event_loop().run_in_executor(executor, encode_webp, part)
                 tasks.append(task)
 
             results = await asyncio.gather(*tasks)
+        print(f"Imágenes subidas")
 
         # Subir las imágenes a S3
         s3_client = boto3.client('s3',
@@ -147,7 +159,9 @@ async def upload_image(request):
         return web.Response(text="Imágenes subidas correctamente", status=200)
 
     except Exception as e:
+        import traceback
         print(f"Error al subir imágenes: {e}")
+        traceback.print_exc()
         return web.Response(text="Error al subir imágenes", status=500)
 
     finally:
@@ -155,6 +169,7 @@ async def upload_image(request):
         print(f"Tiempo de ejecución: {time_end - time_start} segundos")
 
 
+# BUSCAR IMAGEN
 def get_all_tokens_redis():
     r = redis_client
 
@@ -237,4 +252,3 @@ async def search_image(request):
                                                                                               'AWS_BUCKET'),
                                                                                               'Key': content['Key']},
                                                                                           300))
-
